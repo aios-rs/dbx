@@ -2773,7 +2773,11 @@ const showDropInside = computed(() => dragState.active && dragState.targetId ===
 const isDragging = computed(() => dragState.active && dragState.draggedId === props.node.id);
 const TABLE_REFERENCE_DRAG_THRESHOLD = 5;
 const TABLE_REFERENCE_DRAGGING_CLASS = "dbx-table-reference-dragging";
-const canDragTableReference = computed(() => !props.dragDisabled && (props.node.type === "table" || props.node.type === "view") && !!props.node.connectionId && props.node.database != null);
+const canDragTableReference = computed(() => {
+  if (props.dragDisabled || !props.node.connectionId || props.node.database == null) return false;
+  if (props.node.type === "table" || props.node.type === "view") return true;
+  return props.node.type === "column" && !!props.node.tableName;
+});
 
 let pendingTableReferenceDrag: {
   payload: QueryEditorTableReferencePayload;
@@ -2785,6 +2789,18 @@ let suppressNextTableReferenceClick = false;
 
 function tableReferenceDragPayload(): QueryEditorTableReferencePayload | null {
   if (!canDragTableReference.value) return null;
+  if (props.node.type === "column") {
+    const columnName = columnNameForDrag(props.node);
+    if (!props.node.tableName || !columnName) return null;
+    return createTableReferencePayload({
+      connectionId: props.node.connectionId,
+      database: props.node.database,
+      schema: props.node.schema,
+      tableName: props.node.tableName,
+      columnName,
+      databaseType: currentDatabaseType(),
+    });
+  }
   const payload = createTableReferencePayload({
     connectionId: props.node.connectionId,
     database: props.node.database,
@@ -2793,6 +2809,12 @@ function tableReferenceDragPayload(): QueryEditorTableReferencePayload | null {
     databaseType: currentDatabaseType(),
   });
   return payload;
+}
+
+function columnNameForDrag(node: TreeNode): string {
+  const column = node.meta as Partial<ColumnInfo> | undefined;
+  if (typeof column?.name === "string" && column.name) return column.name;
+  return node.label.replace(/\s+\([^()]*\)$/, "");
 }
 
 function startTableReferenceDrag(payload: QueryEditorTableReferencePayload) {
