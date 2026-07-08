@@ -215,7 +215,7 @@ function resetInstallProgress() {
   lastProgressPercent.value = null;
 }
 
-const updatableCount = computed(() => (props.updateNotificationsEnabled ? drivers.value.filter((d) => d.update_available).length : 0));
+const updatableCount = computed(() => drivers.value.filter((d) => d.update_available).length);
 const downloadCacheBytes = computed(() => Number(driverStoreUsage.value?.download_cache_bytes || 0));
 const usageSummary = computed(() => {
   const usage = driverStoreUsage.value;
@@ -243,8 +243,8 @@ function updateAgentDrivers(nextDrivers: AgentDriverInfo[]) {
   emitDriverUpdateCount();
 }
 
-const agentTabUpdateCount = computed(() => (props.updateNotificationsEnabled ? drivers.value.filter((d) => d.update_available).length : 0));
-const jdbcTabUpdateCount = computed(() => (props.updateNotificationsEnabled && jdbcPluginStatus.value?.update_available ? 1 : 0));
+const agentTabUpdateCount = computed(() => drivers.value.filter((d) => d.update_available).length);
+const jdbcTabUpdateCount = computed(() => (jdbcPluginStatus.value?.update_available ? 1 : 0));
 
 function emitDriverUpdateCount() {
   if (!props.updateNotificationsEnabled) {
@@ -986,11 +986,7 @@ onMounted(async () => {
   void loadDriverStoreUsage();
   void loadDriverStorePath();
 
-  if (props.updateNotificationsEnabled) {
-    api.listInstalledAgents().then((result) => {
-      updateAgentDrivers(result);
-    });
-  }
+  void forceRefresh().catch(() => undefined);
 
   unlisten = await api.listenAgentInstallProgress((payload) => {
     if (payload.step === "done" || payload.step === "all-done") {
@@ -1005,7 +1001,7 @@ onMounted(async () => {
     }
   });
   void loadJdbcDrivers();
-  if (props.updateNotificationsEnabled) void loadJdbcPluginStatus();
+  void loadJdbcPluginStatus();
 });
 
 onUnmounted(() => {
